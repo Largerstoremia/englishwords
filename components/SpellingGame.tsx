@@ -301,7 +301,7 @@ const SpellingGame: React.FC<SpellingGameProps> = ({ words, onComplete, onUpdate
                                 <button
                                     key={char}
                                     onClick={() => handleVirtualKey(displayChar)}
-                                    className="w-8 h-10 sm:w-10 sm:h-12 bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-700 font-bold rounded-md shadow-sm text-sm sm:text-base transition-colors"
+                                    className="w-8 h-14 sm:w-14 sm:h-16 bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-700 font-bold rounded-lg shadow-sm text-lg sm:text-2xl transition-colors"
                                 >
                                     {displayChar}
                                 </button>
@@ -310,26 +310,26 @@ const SpellingGame: React.FC<SpellingGameProps> = ({ words, onComplete, onUpdate
                     </div>
                 ))}
                 {/* Backspace & Caps Row */}
-                <div className="flex justify-center gap-2 mt-1">
+                <div className="flex justify-center gap-2 mt-2">
                     <button
                         onClick={() => setIsUpperCase(!isUpperCase)}
-                        className={`px-4 h-10 sm:h-12 font-bold rounded-md shadow-sm flex items-center gap-2 transition-colors ${
+                        className={`px-4 h-14 sm:h-16 font-bold rounded-lg shadow-sm flex items-center gap-2 transition-colors ${
                             isUpperCase 
                             ? 'bg-indigo-600 text-white hover:bg-indigo-700' 
                             : 'bg-slate-200 text-slate-600 hover:bg-slate-300 active:bg-slate-400'
                         }`}
                         aria-label="Toggle Uppercase"
                     >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor">
                              <path fillRule="evenodd" d="M3.293 9.707a1 1 0 010-1.414l6-6a1 1 0 011.414 0l6 6a1 1 0 01-1.414 1.414L11 5.414V17a1 1 0 11-2 0V5.414L4.707 9.707a1 1 0 01-1.414 0z" clipRule="evenodd" />
                         </svg>
                     </button>
 
                     <button
                         onClick={() => handleVirtualKey('BACKSPACE')}
-                        className="px-6 h-10 sm:h-12 bg-slate-200 hover:bg-slate-300 active:bg-slate-400 text-slate-600 font-bold rounded-md shadow-sm flex items-center gap-2 transition-colors"
+                        className="px-6 h-14 sm:h-16 bg-slate-200 hover:bg-slate-300 active:bg-slate-400 text-slate-600 font-bold rounded-lg shadow-sm flex items-center gap-2 transition-colors text-lg"
                     >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor">
                           <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
                         </svg>
                         Backspace
