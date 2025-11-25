@@ -57,8 +57,8 @@ const GameControls: React.FC<GameControlsProps> = ({
       
       {/* Brand */}
       <div className="flex items-center gap-2">
-        <div className="w-12 h-10 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-bold shadow-lg shadow-indigo-200 text-sm">
-          CZM
+        <div className="w-12 h-10 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-bold shadow-lg shadow-indigo-200 text-lg">
+          铭
         </div>
         <div className="hidden sm:block">
           <h1 className="text-lg font-bold text-slate-800 tracking-tight">English-Words-Match</h1>
@@ -190,3 +190,4 @@ const GameControls: React.FC<GameControlsProps> = ({
 };
 
 export default GameControls;
+    
