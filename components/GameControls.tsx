@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { GameLevel, GameState, CustomDeck } from '../types';
+import { GameLevel, GameState, CustomDeck, GameMode } from '../types';
 
 interface GameControlsProps {
   currentDeckId: string;
@@ -17,6 +17,8 @@ interface GameControlsProps {
   onToggleDeleteMode: () => void;
   deckToDeleteId: string | null;
   onConfirmDelete: () => void;
+  gameMode: GameMode;
+  setGameMode: (mode: GameMode) => void;
 }
 
 const formatTime = (seconds: number) => {
@@ -39,7 +41,9 @@ const GameControls: React.FC<GameControlsProps> = ({
   isDeleteMode,
   onToggleDeleteMode,
   deckToDeleteId,
-  onConfirmDelete
+  onConfirmDelete,
+  gameMode,
+  setGameMode
 }) => {
   const isCustomDeck = customDecks.some(d => d.id === currentDeckId);
 
@@ -61,20 +65,24 @@ const GameControls: React.FC<GameControlsProps> = ({
           铭
         </div>
         <div className="hidden sm:block">
-          <h1 className="text-lg font-bold text-slate-800 tracking-tight">English-Words-Match</h1>
-          <p className="text-xs text-slate-500">Match & Clear</p>
+          <h1 className="text-lg font-bold text-slate-800 tracking-tight">Match&Spell</h1>
+          <p className="text-xs text-slate-500">Match & Spell</p>
         </div>
       </div>
 
       {/* Stats */}
       <div className="flex items-center gap-6 text-sm font-medium text-slate-600 order-3 lg:order-2">
+        {gameMode === 'match' && (
+          <>
+            <div className="flex flex-col items-center">
+              <span className="text-xs text-slate-400 uppercase tracking-wider">Time</span>
+              <span className="text-lg font-mono text-slate-800">{formatTime(timer)}</span>
+            </div>
+            <div className="h-8 w-px bg-slate-200"></div>
+          </>
+        )}
         <div className="flex flex-col items-center">
-          <span className="text-xs text-slate-400 uppercase tracking-wider">Time</span>
-          <span className="text-lg font-mono text-slate-800">{formatTime(timer)}</span>
-        </div>
-        <div className="h-8 w-px bg-slate-200"></div>
-        <div className="flex flex-col items-center">
-          <span className="text-xs text-slate-400 uppercase tracking-wider">Moves</span>
+          <span className="text-xs text-slate-400 uppercase tracking-wider">{gameMode === 'match' ? 'Moves' : 'Score'}</span>
           <span className="text-lg font-mono text-slate-800">{moves}</span>
         </div>
       </div>
@@ -82,6 +90,32 @@ const GameControls: React.FC<GameControlsProps> = ({
       {/* Controls */}
       <div className="flex flex-wrap justify-center items-center gap-2 order-2 lg:order-3 w-full lg:w-auto">
         
+        {/* Game Mode Toggle */}
+        <div className="flex bg-slate-100 p-1 rounded-lg mr-2 border border-slate-200">
+            <button
+                onClick={() => setGameMode('match')}
+                disabled={gameState === GameState.Playing}
+                className={`px-3 py-1 rounded-md text-sm font-medium transition-all ${
+                    gameMode === 'match' 
+                    ? 'bg-white text-indigo-600 shadow-sm' 
+                    : 'text-slate-500 hover:text-slate-700'
+                }`}
+            >
+                Match
+            </button>
+            <button
+                onClick={() => setGameMode('spell')}
+                disabled={gameState === GameState.Playing}
+                className={`px-3 py-1 rounded-md text-sm font-medium transition-all ${
+                    gameMode === 'spell' 
+                    ? 'bg-white text-indigo-600 shadow-sm' 
+                    : 'text-slate-500 hover:text-slate-700'
+                }`}
+            >
+                Spell
+            </button>
+        </div>
+
         {/* Delete Mode Toggle / Confirm Button */}
         <button
           onClick={handleDeleteButtonClick}

@@ -11,6 +11,8 @@ export enum GameLevel {
   Custom = 'Custom',
 }
 
+export type GameMode = 'match' | 'spell';
+
 export interface WordPair {
   en: string; // English word
   cn: string; // Chinese translation

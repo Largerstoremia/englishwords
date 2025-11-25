@@ -1,11 +1,12 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { CardItem, GameLevel, GameState, WordPair, CustomDeck } from './types';
+import { CardItem, GameLevel, GameState, WordPair, CustomDeck, GameMode } from './types';
 import { fetchWordPairs } from './services/geminiService';
 import Card from './components/Card';
 import GameControls from './components/GameControls';
 import ResultModal from './components/ResultModal';
 import DeckBuilderModal from './components/DeckBuilderModal';
+import SpellingGame from './components/SpellingGame';
 
 // Helper to shuffle array
 function shuffleArray<T>(array: T[]): T[] {
@@ -22,6 +23,7 @@ const BATCH_SIZE_PAIRS = 8; // 8 pairs = 16 cards max
 
 const App: React.FC = () => {
   const [gameState, setGameState] = useState<GameState>(GameState.Idle);
+  const [gameMode, setGameMode] = useState<GameMode>('match');
   
   // Deck State
   const [currentDeckId, setCurrentDeckId] = useState<string>(GameLevel.Unit1);
@@ -198,21 +200,31 @@ const App: React.FC = () => {
     const shuffledPairs = shuffleArray(pairs);
     setAllRoundPairs(shuffledPairs);
 
-    // Slice first batch
-    const firstBatch = shuffledPairs.slice(0, BATCH_SIZE_PAIRS);
-    const remaining = shuffledPairs.slice(BATCH_SIZE_PAIRS);
+    if (gameMode === 'match') {
+        // MATCH MODE
+        // Slice first batch
+        const firstBatch = shuffledPairs.slice(0, BATCH_SIZE_PAIRS);
+        const remaining = shuffledPairs.slice(BATCH_SIZE_PAIRS);
 
-    setPendingPairs(remaining);
-    
-    // Start game
-    startBatch(firstBatch);
-    setGameState(GameState.Playing);
-    startTimer();
-  }, [currentDeckId, customDecks, startTimer, stopTimer, startBatch]);
+        setPendingPairs(remaining);
+        
+        // Start game
+        startBatch(firstBatch);
+        setGameState(GameState.Playing);
+        startTimer();
+    } else {
+        // SPELLING MODE
+        // Use all words sequentially
+        // The SpellingGame component will handle the queue
+        setGameState(GameState.Playing);
+        // Timer not really needed unless we want to track total time
+    }
 
-  // Check Win / Batch Completion Condition
+  }, [currentDeckId, customDecks, startTimer, stopTimer, startBatch, gameMode]);
+
+  // Check Win / Batch Completion Condition (MATCH MODE ONLY)
   useEffect(() => {
-    if (gameState === GameState.Playing && cards.length > 0) {
+    if (gameMode === 'match' && gameState === GameState.Playing && cards.length > 0) {
       const isBatchComplete = matchedPairIds.size === cards.length / 2;
       
       if (isBatchComplete) {
@@ -233,7 +245,7 @@ const App: React.FC = () => {
         }
       }
     }
-  }, [matchedPairIds, cards.length, gameState, pendingPairs, stopTimer, startBatch]);
+  }, [matchedPairIds, cards.length, gameState, pendingPairs, stopTimer, startBatch, gameMode]);
 
   const handleCardClick = (clickedCard: CardItem) => {
     if (
@@ -335,6 +347,10 @@ const App: React.FC = () => {
     }
   };
 
+  const handleSpellingComplete = () => {
+    setGameState(GameState.Won);
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-indigo-100 via-slate-50 to-slate-100 p-4 font-sans text-slate-900">
       
@@ -353,6 +369,8 @@ const App: React.FC = () => {
         onToggleDeleteMode={handleToggleDeleteMode}
         deckToDeleteId={deckToDeleteId}
         onConfirmDelete={handleConfirmDelete}
+        gameMode={gameMode}
+        setGameMode={setGameMode}
       />
 
       <main className="max-w-xl mx-auto pb-10">
@@ -361,22 +379,33 @@ const App: React.FC = () => {
              <div className="w-16 h-16 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
              <p className="text-slate-500 font-medium animate-pulse">Preparing your game...</p>
           </div>
-        ) : cards.length > 0 ? (
-          <div className="grid grid-cols-4 gap-3 sm:gap-4 auto-rows-fr perspective-1000">
-            {cards.map(card => (
-              <Card 
-                key={card.id} 
-                card={card} 
-                onClick={handleCardClick} 
-                disabled={isProcessing}
-                isSelected={firstCardId === card.id || secondCardId === card.id}
-              />
-            ))}
-          </div>
+        ) : gameState === GameState.Playing ? (
+            // Render Game Content based on Mode
+            gameMode === 'match' ? (
+                cards.length > 0 ? (
+                    <div className="grid grid-cols-4 gap-3 sm:gap-4 auto-rows-fr perspective-1000">
+                        {cards.map(card => (
+                        <Card 
+                            key={card.id} 
+                            card={card} 
+                            onClick={handleCardClick} 
+                            disabled={isProcessing}
+                            isSelected={firstCardId === card.id || secondCardId === card.id}
+                        />
+                        ))}
+                    </div>
+                ) : null
+            ) : (
+                <SpellingGame 
+                    words={allRoundPairs} 
+                    onComplete={handleSpellingComplete} 
+                    onUpdateScore={(newScore) => setMoves(newScore)}
+                />
+            )
         ) : gameState === GameState.Idle ? (
             <div className="flex flex-col items-center justify-center h-80 text-center text-slate-400">
                 <p className="text-lg">Ready to play?</p>
-                <p className="text-sm">Select a deck and click Start</p>
+                <p className="text-sm">Select a deck, choose a mode, and click Start</p>
             </div>
         ) : null}
       </main>
