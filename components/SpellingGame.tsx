@@ -14,6 +14,13 @@ interface LetterState {
   userInput: string;
 }
 
+// QWERTY Layout for Virtual Keyboard
+const KEYBOARD_ROWS = [
+  ['q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p'],
+  ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l'],
+  ['z', 'x', 'c', 'v', 'b', 'n', 'm']
+];
+
 const SpellingGame: React.FC<SpellingGameProps> = ({ words, onComplete, onUpdateScore }) => {
   // Game State
   const [queue, setQueue] = useState<WordPair[]>([]);
@@ -22,16 +29,19 @@ const SpellingGame: React.FC<SpellingGameProps> = ({ words, onComplete, onUpdate
   // Current Round State
   const [letters, setLetters] = useState<LetterState[]>([]);
   const [feedback, setFeedback] = useState<'idle' | 'correct' | 'wrong'>('idle');
-  const [hasErrorOnCurrent, setHasErrorOnCurrent] = useState(false); // Track if current word was already missed once
+  const [hasErrorOnCurrent, setHasErrorOnCurrent] = useState(false); 
   const [isFinished, setIsFinished] = useState(false);
+  
+  // Input Focus Tracking
+  const [activeIndex, setActiveIndex] = useState<number>(-1);
 
-  // Stats for progress bar (Initial length needed to calculate percentage since queue grows)
+  // Stats
   const [initialCount, setInitialCount] = useState(0);
   const [completedCount, setCompletedCount] = useState(0);
 
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
-  // Initialize Queue on Mount or when words prop changes
+  // Initialize Queue
   useEffect(() => {
     setQueue([...words]);
     setInitialCount(words.length);
@@ -43,11 +53,9 @@ const SpellingGame: React.FC<SpellingGameProps> = ({ words, onComplete, onUpdate
 
   const currentWord = queue.length > 0 ? queue[0] : null;
 
-  // Initialize Letters for the current word
+  // Initialize Letters for current word
   useEffect(() => {
     if (!currentWord) {
-        // Only trigger finish if we actually had words to begin with (initialCount > 0)
-        // This prevents the game from finishing immediately on mount before state is synced
         if (initialCount > 0 && completedCount >= initialCount && queue.length === 0) {
             setIsFinished(true);
         }
@@ -56,9 +64,7 @@ const SpellingGame: React.FC<SpellingGameProps> = ({ words, onComplete, onUpdate
 
     const chars = currentWord.en.split('');
     const newLetters: LetterState[] = chars.map((char) => {
-      // Always show non-alphabetic characters (spaces, punctuation)
       const isAlpha = /[a-zA-Z]/.test(char);
-      // Randomly hide ~50% of letters, ensuring non-alpha are shown
       const isHidden = isAlpha && Math.random() > 0.4; 
       return {
         char,
@@ -67,10 +73,8 @@ const SpellingGame: React.FC<SpellingGameProps> = ({ words, onComplete, onUpdate
       };
     });
 
-    // Ensure at least one letter is hidden if the word has letters
     const alphaIndices = newLetters.map((l, i) => l.isHidden ? i : -1).filter(i => i !== -1);
     if (alphaIndices.length === 0 && /[a-zA-Z]/.test(currentWord.en)) {
-       // Force hide the last alpha char if none were hidden randomly
        for (let i = newLetters.length - 1; i >= 0; i--) {
          if (/[a-zA-Z]/.test(newLetters[i].char)) {
            newLetters[i].isHidden = true;
@@ -83,19 +87,24 @@ const SpellingGame: React.FC<SpellingGameProps> = ({ words, onComplete, onUpdate
     setFeedback('idle');
     setHasErrorOnCurrent(false);
     
-    // Focus first input after a slight delay to allow render
-    setTimeout(() => {
-        const firstInput = inputRefs.current.find(ref => ref !== null);
-        firstInput?.focus();
-    }, 100);
+    // Find first hidden index to set as active
+    const firstHidden = newLetters.findIndex(l => l.isHidden);
+    setActiveIndex(firstHidden);
+
+    // Auto-focus physical input for desktop users
+    // We check window.innerWidth to avoid auto-popping keyboard on mobile if possible,
+    // though reliable detection is tricky. We'll default to focusing but user can use virtual keys.
+    if (window.innerWidth > 768) {
+        setTimeout(() => {
+            inputRefs.current[firstHidden]?.focus();
+        }, 100);
+    }
 
   }, [currentWord, completedCount, initialCount, queue.length]);
 
   const handleInputChange = (index: number, val: string) => {
-    // Only accept 1 char
     const char = val.slice(-1);
     
-    // Reset feedback to idle if user starts typing again after an error
     if (feedback === 'wrong') {
         setFeedback('idle');
     }
@@ -104,7 +113,7 @@ const SpellingGame: React.FC<SpellingGameProps> = ({ words, onComplete, onUpdate
     newLetters[index].userInput = char;
     setLetters(newLetters);
 
-    // Auto-advance focus
+    // Auto-advance
     if (char) {
       let nextInputIndex = -1;
       for (let i = index + 1; i < letters.length; i++) {
@@ -113,7 +122,10 @@ const SpellingGame: React.FC<SpellingGameProps> = ({ words, onComplete, onUpdate
           break;
         }
       }
+      // Update active index regardless of focus
       if (nextInputIndex !== -1) {
+        setActiveIndex(nextInputIndex);
+        // Only focus physically if NOT using virtual keyboard (hard to detect, so we keep focus behavior)
         inputRefs.current[nextInputIndex]?.focus();
       }
     }
@@ -121,7 +133,7 @@ const SpellingGame: React.FC<SpellingGameProps> = ({ words, onComplete, onUpdate
 
   const handleKeyDown = (e: React.KeyboardEvent, index: number) => {
     if (e.key === 'Backspace' && !letters[index].userInput) {
-      // Move back to previous input
+      // Move back
       let prevInputIndex = -1;
       for (let i = index - 1; i >= 0; i--) {
         if (letters[i].isHidden) {
@@ -130,11 +142,46 @@ const SpellingGame: React.FC<SpellingGameProps> = ({ words, onComplete, onUpdate
         }
       }
       if (prevInputIndex !== -1) {
+        setActiveIndex(prevInputIndex);
         inputRefs.current[prevInputIndex]?.focus();
       }
     } else if (e.key === 'Enter') {
       checkAnswer();
     }
+  };
+
+  // Virtual Keyboard Handler
+  const handleVirtualKey = (key: string) => {
+      if (feedback === 'correct' || activeIndex === -1) return;
+      if (feedback === 'wrong') setFeedback('idle');
+
+      if (key === 'BACKSPACE') {
+          const currentVal = letters[activeIndex].userInput;
+          if (currentVal) {
+              // Clear current
+              const newLetters = [...letters];
+              newLetters[activeIndex].userInput = '';
+              setLetters(newLetters);
+          } else {
+              // Move back and clear
+              let prevInputIndex = -1;
+              for (let i = activeIndex - 1; i >= 0; i--) {
+                if (letters[i].isHidden) {
+                  prevInputIndex = i;
+                  break;
+                }
+              }
+              if (prevInputIndex !== -1) {
+                  setActiveIndex(prevInputIndex);
+                  const newLetters = [...letters];
+                  newLetters[prevInputIndex].userInput = '';
+                  setLetters(newLetters);
+              }
+          }
+      } else {
+          // Character Input
+          handleInputChange(activeIndex, key);
+      }
   };
 
   const checkAnswer = () => {
@@ -144,46 +191,35 @@ const SpellingGame: React.FC<SpellingGameProps> = ({ words, onComplete, onUpdate
     const targetWord = currentWord.en;
 
     if (userWord.toLowerCase() === targetWord.toLowerCase()) {
-      // --- CORRECT ---
       setFeedback('correct');
       onUpdateScore(completedCount + 1);
-      
       setTimeout(() => {
         setCompletedCount(prev => prev + 1);
-        setQueue(prev => prev.slice(1)); // Remove current word from head
+        setQueue(prev => prev.slice(1)); 
       }, 1000);
-
     } else {
-      // --- WRONG ---
       setFeedback('wrong');
-      
-      // If this is the first time missing this specific instance of the word,
-      // add it to mistakes and re-queue it.
       if (!hasErrorOnCurrent) {
           setHasErrorOnCurrent(true);
-          
-          // Track unique mistakes (avoid duplicates if same word exists multiple times in source)
           setMistakenWords(prev => {
               const alreadyExists = prev.some(w => w.en === currentWord.en);
               return alreadyExists ? prev : [...prev, currentWord];
           });
-
-          // Add to end of queue so user sees it again later
           setQueue(prev => [...prev, currentWord]);
       }
       
-      // UX: Focus the first empty input again? Or first incorrect?
-      // For now, let user edit their existing inputs.
+      // On error, reset focus/active to first hidden letter to allow retry
+      const firstHidden = letters.findIndex(l => l.isHidden);
+      setActiveIndex(firstHidden);
+      inputRefs.current[firstHidden]?.focus();
     }
   };
 
-  // --- Summary View (End of Game) ---
   if (isFinished) {
     return (
         <div className="w-full max-w-2xl mx-auto flex flex-col items-center justify-center min-h-[400px] animate-[fadeIn_0.5s_ease-out]">
             <div className="bg-white rounded-2xl shadow-xl p-8 w-full border border-slate-100 flex flex-col items-center text-center">
                 <h2 className="text-3xl font-bold text-slate-800 mb-4">Spelling Complete! ✍️</h2>
-                
                 {mistakenWords.length === 0 ? (
                     <div className="mb-8">
                         <div className="text-6xl mb-4">🏆</div>
@@ -204,7 +240,6 @@ const SpellingGame: React.FC<SpellingGameProps> = ({ words, onComplete, onUpdate
                         </div>
                     </div>
                 )}
-
                 <button
                     onClick={onComplete}
                     className="px-8 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl transition-all shadow-lg hover:shadow-indigo-200"
@@ -220,14 +255,10 @@ const SpellingGame: React.FC<SpellingGameProps> = ({ words, onComplete, onUpdate
 
   return (
     <div className="w-full max-w-2xl mx-auto flex flex-col items-center justify-center min-h-[400px]">
-      {/* Card Container */}
-      <div className={`bg-white rounded-2xl shadow-xl p-8 w-full border border-slate-100 flex flex-col items-center text-center transition-all duration-300 ${feedback === 'wrong' ? 'animate-[shake_0.5s_ease-in-out] border-red-300' : ''}`}>
+      <div className={`bg-white rounded-2xl shadow-xl p-4 sm:p-8 w-full border border-slate-100 flex flex-col items-center text-center transition-all duration-300 ${feedback === 'wrong' ? 'animate-[shake_0.5s_ease-in-out] border-red-300' : ''}`}>
         
         {/* Progress */}
-        <div className="w-full bg-slate-100 h-2 rounded-full mb-8 overflow-hidden">
-           {/* Calculate progress based on how many unique "Successes" vs total needed. 
-               Since queue grows, we stick to initial count vs completed count. 
-               Completed count goes up only when a word is removed from queue. */}
+        <div className="w-full bg-slate-100 h-2 rounded-full mb-6 overflow-hidden">
            <div 
              className="bg-indigo-500 h-full transition-all duration-500"
              style={{ width: `${Math.min(100, (completedCount / initialCount) * 100)}%` }}
@@ -235,20 +266,22 @@ const SpellingGame: React.FC<SpellingGameProps> = ({ words, onComplete, onUpdate
         </div>
 
         {/* Chinese Definition */}
-        <h2 className="text-3xl md:text-4xl font-bold text-slate-800 mb-12">
+        <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-slate-800 mb-8">
           {currentWord.cn}
         </h2>
 
         {/* Word Inputs */}
-        <div className="flex flex-wrap justify-center gap-2 mb-10">
+        <div className="flex flex-wrap justify-center gap-2 mb-8">
           {letters.map((letter, idx) => {
             if (!letter.isHidden) {
               return (
-                <span key={idx} className="w-10 h-14 flex items-center justify-center text-2xl font-mono font-bold text-slate-500 bg-slate-50 rounded-lg border border-transparent">
+                <span key={idx} className="w-8 h-12 sm:w-10 sm:h-14 flex items-center justify-center text-xl sm:text-2xl font-mono font-bold text-slate-500 bg-slate-50 rounded-lg border border-transparent select-none">
                   {letter.char}
                 </span>
               );
             }
+
+            const isActive = idx === activeIndex;
 
             return (
               <input
@@ -258,9 +291,12 @@ const SpellingGame: React.FC<SpellingGameProps> = ({ words, onComplete, onUpdate
                 value={letter.userInput}
                 onChange={(e) => handleInputChange(idx, e.target.value)}
                 onKeyDown={(e) => handleKeyDown(e, idx)}
+                onFocus={() => setActiveIndex(idx)}
+                readOnly={false} /* Can keep as false to allow keyboard, but virtual buttons will also work */
                 disabled={feedback === 'correct'}
-                className={`w-10 h-14 text-center text-2xl font-mono font-bold border-2 rounded-lg focus:outline-none focus:ring-4 transition-all
-                  ${feedback === 'idle' ? 'border-indigo-200 focus:border-indigo-500 focus:ring-indigo-100 text-slate-800' : ''}
+                className={`w-8 h-12 sm:w-10 sm:h-14 text-center text-xl sm:text-2xl font-mono font-bold border-2 rounded-lg focus:outline-none transition-all caret-indigo-500
+                  ${feedback === 'idle' ? 'text-slate-800' : ''}
+                  ${isActive && feedback === 'idle' ? 'border-indigo-500 ring-2 ring-indigo-200' : 'border-slate-200'}
                   ${feedback === 'correct' ? 'border-green-500 bg-green-50 text-green-700' : ''}
                   ${feedback === 'wrong' ? 'border-red-500 bg-red-50 text-red-700' : ''}
                 `}
@@ -269,38 +305,60 @@ const SpellingGame: React.FC<SpellingGameProps> = ({ words, onComplete, onUpdate
           })}
         </div>
 
-        {/* Feedback / Correct Answer */}
-        <div className="h-8 mb-6">
-            {feedback === 'wrong' && (
-                <p className="text-red-500 font-bold text-lg">
-                    Incorrect. Try again!
-                </p>
-            )}
-            {feedback === 'correct' && (
-                 <p className="text-green-500 font-bold text-lg animate-pulse">
-                    Correct!
-                </p>
-            )}
+        {/* Feedback Text */}
+        <div className="h-6 mb-4">
+            {feedback === 'wrong' && <p className="text-red-500 font-bold">Incorrect. Try again!</p>}
+            {feedback === 'correct' && <p className="text-green-500 font-bold animate-pulse">Correct!</p>}
         </div>
 
-        {/* Action Button */}
+        {/* Check Button */}
         <button
           onClick={checkAnswer}
           disabled={feedback === 'correct'}
-          className={`px-8 py-3 rounded-xl font-bold text-white transition-all transform active:scale-95 shadow-lg
+          className={`w-full sm:w-auto px-8 py-3 rounded-xl font-bold text-white transition-all transform active:scale-95 shadow-md mb-8
              ${feedback === 'correct'
                 ? 'bg-green-500 hover:bg-green-600' 
                 : feedback === 'wrong'
                     ? 'bg-red-500 hover:bg-red-600'
-                    : 'bg-indigo-600 hover:bg-indigo-700 hover:shadow-indigo-200'
+                    : 'bg-indigo-600 hover:bg-indigo-700'
              }
           `}
         >
           {feedback === 'correct' ? 'Next...' : feedback === 'wrong' ? 'Retry' : 'Check Answer'}
         </button>
 
+        {/* Virtual Keyboard */}
+        <div className="w-full pt-4 border-t border-slate-100">
+            <div className="flex flex-col gap-2">
+                {KEYBOARD_ROWS.map((row, rowIdx) => (
+                    <div key={rowIdx} className="flex justify-center gap-1 sm:gap-2">
+                        {row.map((char) => (
+                            <button
+                                key={char}
+                                onClick={() => handleVirtualKey(char)}
+                                className="w-8 h-10 sm:w-10 sm:h-12 bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-700 font-bold rounded-md shadow-sm uppercase text-sm sm:text-base transition-colors"
+                            >
+                                {char}
+                            </button>
+                        ))}
+                    </div>
+                ))}
+                {/* Backspace Row */}
+                <div className="flex justify-center mt-1">
+                    <button
+                        onClick={() => handleVirtualKey('BACKSPACE')}
+                        className="px-6 h-10 sm:h-12 bg-slate-200 hover:bg-slate-300 active:bg-slate-400 text-slate-600 font-bold rounded-md shadow-sm flex items-center gap-2 transition-colors"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                        </svg>
+                        Backspace
+                    </button>
+                </div>
+            </div>
+        </div>
+
       </div>
-       <p className="mt-8 text-slate-400 text-sm">Type the missing letters and press Enter</p>
     </div>
   );
 };
