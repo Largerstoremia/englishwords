@@ -102,7 +102,9 @@ const App: React.FC = () => {
     // If the deleted deck was the one currently being played, reset to Unit 1
     if (currentDeckId === id) {
       setCurrentDeckId(GameLevel.Unit1);
-      setTimeout(() => initGame(GameLevel.Unit1), 0);
+      // Ensure we are in idle state
+      setGameState(GameState.Idle);
+      setCards([]);
     }
     
     setIsDeleteMode(false);
@@ -207,12 +209,6 @@ const App: React.FC = () => {
     setGameState(GameState.Playing);
     startTimer();
   }, [currentDeckId, customDecks, startTimer, stopTimer, startBatch]);
-
-  // Initial load
-  useEffect(() => {
-    initGame();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); 
 
   // Check Win / Batch Completion Condition
   useEffect(() => {
@@ -331,7 +327,6 @@ const App: React.FC = () => {
     }
 
     setCurrentDeckId(id);
-    setTimeout(() => initGame(id), 0);
   };
 
   const handleConfirmDelete = () => {
