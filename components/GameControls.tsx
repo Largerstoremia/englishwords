@@ -57,11 +57,11 @@ const GameControls: React.FC<GameControlsProps> = ({
       
       {/* Brand */}
       <div className="flex items-center gap-2">
-        <div className="w-10 h-10 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-bold shadow-lg shadow-indigo-200">
-          LF
+        <div className="w-12 h-10 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-bold shadow-lg shadow-indigo-200 text-sm">
+          CZM
         </div>
         <div className="hidden sm:block">
-          <h1 className="text-xl font-bold text-slate-800 tracking-tight">LingoFlip</h1>
+          <h1 className="text-lg font-bold text-slate-800 tracking-tight">English-Words-Match</h1>
           <p className="text-xs text-slate-500">Match & Clear</p>
         </div>
       </div>
@@ -126,6 +126,7 @@ const GameControls: React.FC<GameControlsProps> = ({
           {isDeleteMode && <option value="" disabled>Select a deck to delete...</option>}
           <optgroup label="Textbook Units">
             <option value={GameLevel.Unit1}>Unit 1</option>
+            <option value={GameLevel.Unit1Supplement}>Unit 1 补充</option>
             <option value={GameLevel.Unit2}>Unit 2</option>
             <option value={GameLevel.Unit3}>Unit 3</option>
             <option value={GameLevel.Unit4}>Unit 4</option>

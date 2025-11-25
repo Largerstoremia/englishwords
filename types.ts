@@ -1,6 +1,7 @@
 
 export enum GameLevel {
   Unit1 = 'Unit 1',
+  Unit1Supplement = 'Unit 1 补充',
   Unit2 = 'Unit 2',
   Unit3 = 'Unit 3',
   Unit4 = 'Unit 4',
